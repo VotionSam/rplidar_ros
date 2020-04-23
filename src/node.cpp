@@ -146,7 +146,6 @@ bool checkRPLIDARHealth(RPlidarDriver * drv)
 {
     u_result     op_result;
     rplidar_response_device_health_t healthinfo;
-
     op_result = drv->getHealth(healthinfo);
     if (IS_OK(op_result)) {
         ROS_INFO("RPLidar health status : %d", healthinfo.status);
@@ -170,7 +169,6 @@ bool stop_motor(const std::shared_ptr<std_srvs::srv::Empty::Request> req,
        return false;
 
   ROS_DEBUG("Stop motor");
-  drv->stop();
   drv->stopMotor();
   return true;
 }
@@ -180,9 +178,14 @@ bool start_motor(const std::shared_ptr<std_srvs::srv::Empty::Request> req,
 {
   if(!drv)
        return false;
-  ROS_DEBUG("Start motor");
-  drv->startMotor();
-  drv->startScan(0,1);
+  if(drv->isConnected())
+  {
+      ROS_DEBUG("Start motor");
+      u_result ans=drv->startMotor();
+  
+      ans=drv->startScan(0,1);
+   }
+   else ROS_INFO("lost connection");
   return true;
 }
 
@@ -363,7 +366,11 @@ int main(int argc, char * argv[]) {
                             int angle_value = (int)(angle * angle_compensate_multiple);
                             if ((angle_value - angle_compensate_offset) < 0) angle_compensate_offset = angle_value;
                             for (j = 0; j < angle_compensate_multiple; j++) {
-                                angle_compensate_nodes[angle_value-angle_compensate_offset+j] = nodes[i];
+
+                                int angle_compensate_nodes_index = angle_value-angle_compensate_offset+j;
+                                if(angle_compensate_nodes_index >= angle_compensate_nodes_count)
+                                    angle_compensate_nodes_index = angle_compensate_nodes_count-1;
+                                angle_compensate_nodes[angle_compensate_nodes_index] = nodes[i];
                             }
                         }
                     }
@@ -394,8 +401,12 @@ int main(int argc, char * argv[]) {
                 // All the data is invalid, just publish them
                 float angle_min = DEG2RAD(0.0f);
                 float angle_max = DEG2RAD(359.0f);
+<<<<<<< HEAD
 
                 publish_scan(scan_pub, nodes, count,
+=======
+                publish_scan(&scan_pub, nodes, count,
+>>>>>>> 4f899e670bec2c9e1f26b0969f2de36d23618ef3
                              start_scan_time, scan_duration, inverted,
                              angle_min, angle_max, max_distance,
                              frame_id);
@@ -406,8 +417,8 @@ int main(int argc, char * argv[]) {
     }
 
     // done!
-    drv->stop();
     drv->stopMotor();
+    drv->stop();
     RPlidarDriver::DisposeDriver(drv);
     return 0;
 }
